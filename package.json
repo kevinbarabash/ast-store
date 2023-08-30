@@ -1,0 +1,12 @@
+{
+  "name": "ast-store",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "git@github.com:kevinbarabash/ast-store.git",
+  "author": "Kevin Barabash <kevinb7@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "eslint": "^8.48.0",
+    "swc-to-babel": "^2.2.0"
+  }
+}
