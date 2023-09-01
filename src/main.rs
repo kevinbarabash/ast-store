@@ -6,7 +6,7 @@ use swc_ecma_parser::{error::Error, parse_file_as_module, Syntax, TsConfig};
 
 mod v8_test;
 
-use v8_test::{load_cjs_module, load_esm_module};
+use v8_test::load_esm_module;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let mut errors: Vec<Error> = vec![];
@@ -73,8 +73,6 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let result = script.run(scope).unwrap();
     let result = result.to_string(scope).unwrap();
     println!("result: {}", result.to_rust_string_lossy(scope));
-
-    load_cjs_module();
 
     load_esm_module();
 
