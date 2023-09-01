@@ -1,15 +1,13 @@
 use std::error;
 use std::sync::Arc;
 use swc_common::{comments::SingleThreadedComments, FileName, SourceMap};
-use swc_ecma_ast::EsVersion;
-use swc_ecma_parser::{error::Error, parse_file_as_module, Syntax, TsConfig};
+use swc_ecma_parser::{lexer::Lexer, Capturing, Parser, StringInput, Syntax, TsConfig};
 
 mod loader;
 
 use loader::load_esm_module;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let mut errors: Vec<Error> = vec![];
     let comments = SingleThreadedComments::default();
 
     let cm = Arc::<SourceMap>::default();
@@ -26,8 +24,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let context = v8::Context::new(scope);
     let scope = &mut v8::ContextScope::new(scope, context);
 
-    let ast = parse_file_as_module(
-        &fm,
+    let lexer = Lexer::new(
         Syntax::Typescript(TsConfig {
             tsx: false,
             dts: true,
@@ -35,12 +32,19 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             no_early_errors: false,
             disallow_ambiguous_jsx_like: false,
         }),
-        EsVersion::Es2020,
+        Default::default(),
+        StringInput::from(&*fm),
         Some(&comments),
-        &mut errors,
-    )
-    .unwrap(); // TODO: create a wrapper that converts the error to
-               // something that implements std::error:Error
+    );
+    let capturing = Capturing::new(lexer);
+    let mut parser = Parser::new_from(capturing);
+
+    let ast = parser.parse_module().expect("Failed to parse module.");
+
+    for token in parser.input().take() {
+        eprintln!("token: {:?}", token);
+    }
+    eprintln!();
 
     let global = context.global(scope);
     let my_func_key = v8::String::new(scope, "ast").unwrap();
