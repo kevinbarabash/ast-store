@@ -1,10 +1,10 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 struct Loader {
     cwds: Vec<String>,
-    // TODO: add a hashmap to lookup modules by path so that we only
-    // have to process each module once.
+    handles: HashMap<String, v8::Global<v8::Module>>,
 }
 
 pub fn load_esm_module() -> Option<()> {
@@ -16,6 +16,7 @@ pub fn load_esm_module() -> Option<()> {
 
     let loader = Loader {
         cwds: vec![".".to_string()],
+        handles: HashMap::new(),
     };
     scope.set_slot(loader);
 
@@ -76,6 +77,7 @@ fn load_module<'a>(
 
     let src = v8::script_compiler::Source::new(code, Some(&script_origin));
     let module = v8::script_compiler::compile_module(scope, src).unwrap();
+    let handle = v8::Global::<v8::Module>::new(scope, module);
 
     module
         .instantiate_module(scope, module_resolve_callback)
@@ -83,6 +85,9 @@ fn load_module<'a>(
 
     let loader = scope.get_slot_mut::<Loader>().unwrap();
     loader.cwds.pop();
+
+    let full_path = path.canonicalize().unwrap().to_str().unwrap().to_string();
+    loader.handles.insert(full_path, handle);
 
     Some(module)
 }
@@ -96,5 +101,21 @@ fn module_resolve_callback<'a>(
     let scope = &mut unsafe { v8::CallbackScope::new(context) };
     let path = specifier.to_rust_string_lossy(scope);
 
-    load_module(&path, scope)
+    let loader = scope.get_slot_mut::<Loader>().unwrap();
+    let full_path = Path::new(loader.cwds.last().unwrap())
+        .join(path)
+        .canonicalize()
+        .unwrap();
+
+    match loader
+        .handles
+        .get(&full_path.to_str().unwrap().to_string())
+        .cloned()
+    {
+        Some(handle) => {
+            eprintln!("found handle for {:#?}", full_path);
+            Some(v8::Local::new(scope, handle))
+        }
+        None => load_module(full_path.to_str().unwrap(), scope),
+    }
 }

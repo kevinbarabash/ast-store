@@ -4,9 +4,9 @@ use swc_common::{comments::SingleThreadedComments, FileName, SourceMap};
 use swc_ecma_ast::EsVersion;
 use swc_ecma_parser::{error::Error, parse_file_as_module, Syntax, TsConfig};
 
-mod v8_test;
+mod loader;
 
-use v8_test::load_esm_module;
+use loader::load_esm_module;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let mut errors: Vec<Error> = vec![];
