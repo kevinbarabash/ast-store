@@ -27,6 +27,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_v8",
+ "swc_atoms",
  "swc_common",
  "swc_ecma_ast",
  "swc_ecma_parser",
@@ -492,9 +493,9 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.117.0"
+version = "0.119.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66e4ca784e80a9652547aea4b51c6f0e8fdfd19e84f418d85df84a9fe660364a"
+checksum = "85efce3bb967c7cd2be8058f7b06047489e0b0888fc25db9e3aa7907370ae45c"
 dependencies = [
  "bytes",
  "derive_more",

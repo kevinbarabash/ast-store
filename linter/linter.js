@@ -6,12 +6,8 @@ const eslintScope = require("eslint-scope");
 const noDebugger = require("../node_modules/eslint/lib/rules/no-debugger.js");
 const noConsole = require("../node_modules/eslint/lib/rules/no-console.js");
 
-const ast = require("./ast.js");
-const input = `
-console.log("hello, ");
-debugger;
-console.log("world!");
-`;
+const ast = require("./new_ast.js");
+const input = `console.log("hello, ");\ndebugger;\nconsole.log("world!");`;
 
 const rules = [noDebugger, noConsole];
 
