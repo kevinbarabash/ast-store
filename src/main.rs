@@ -1,6 +1,7 @@
 use std::error;
 
 mod ast;
+mod cjs_to_esm;
 mod loader;
 mod parser;
 
@@ -51,6 +52,21 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     global.set(scope, my_func_key.into(), v8_obj);
 
     let code = v8::String::new(scope, "JSON.stringify(ast, null, 2)").unwrap();
+
+    let script = v8::Script::compile(scope, code, None).unwrap();
+    let result = script.run(scope).unwrap();
+    let result = result.to_string(scope).unwrap();
+    println!("result: {}", result.to_rust_string_lossy(scope));
+
+    // Shows that we can use multiple isolates and they don't share
+    // global state.
+    let isolate = &mut v8::Isolate::new(Default::default());
+
+    let scope = &mut v8::HandleScope::new(isolate);
+    let context = v8::Context::new(scope);
+    let scope = &mut v8::ContextScope::new(scope, context);
+
+    let code = v8::String::new(scope, "globalThis.sum").unwrap();
 
     let script = v8::Script::compile(scope, code, None).unwrap();
     let result = script.run(scope).unwrap();
