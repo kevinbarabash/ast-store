@@ -59,6 +59,8 @@ const runRules = (ast, rules) => {
   });
 
   traverse(
+    // NOTE: this wrapper is required in order for traverse() to visit
+    // the 'Program' node at the root of `ast`.
     {
       type: "File",
       program: ast,
