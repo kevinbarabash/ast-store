@@ -4,262 +4,195 @@ use swc_ecma_ast::*;
 
 pub fn cjs_to_esm(module: &mut Module) {
     for item in module.body.iter_mut() {
-        if let ModuleItem::Stmt(Stmt::Expr(ExprStmt { span: _, expr })) = item {
-            if let Expr::Assign(AssignExpr {
-                op: AssignOp::Assign,
-                left: PatOrExpr::Pat(left),
-                right,
-                ..
-            }) = expr.as_mut()
-            {
-                if is_module_exports(left.as_ref()) {
-                    *item =
-                        ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(ExportDefaultExpr {
-                            span: DUMMY_SP,
-                            expr: right.to_owned(),
-                        }));
-
-                    continue;
-                }
-
-                if let Some(prop) = is_exports_member(left) {
-                    let new_item = match right.as_ref() {
-                        Expr::Fn(FnExpr { ident: _, function }) => {
-                            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                                span: DUMMY_SP,
-                                decl: Decl::Fn(FnDecl {
-                                    ident: Ident::new(prop, DUMMY_SP),
-                                    declare: false,
-                                    function: function.to_owned(),
-                                }),
-                            }))
-                        }
-                        Expr::Class(ClassExpr { ident: _, class }) => {
-                            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                                span: DUMMY_SP,
-                                decl: Decl::Class(ClassDecl {
-                                    ident: Ident::new(prop, DUMMY_SP),
-                                    declare: false,
-                                    class: class.to_owned(),
-                                }),
-                            }))
-                        }
-                        Expr::Ident(ident) => {
-                            ModuleItem::ModuleDecl(ModuleDecl::ExportNamed(NamedExport {
-                                span: DUMMY_SP,
-                                specifiers: vec![ExportSpecifier::Named(ExportNamedSpecifier {
-                                    span: DUMMY_SP,
-                                    orig: ModuleExportName::Ident(Ident::new(prop, DUMMY_SP)),
-                                    exported: Some(ModuleExportName::Ident(ident.to_owned())),
-                                    is_type_only: false,
-                                })],
-                                src: None,
-                                type_only: false,
-                                with: None,
-                            }))
-                        }
-                        _ => ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                            span: DUMMY_SP,
-                            decl: Decl::Var(Box::new(VarDecl {
-                                span: DUMMY_SP,
-                                kind: VarDeclKind::Const,
-                                declare: false,
-                                decls: vec![VarDeclarator {
-                                    span: DUMMY_SP,
-                                    name: Pat::Ident(BindingIdent {
-                                        id: Ident::new(prop, DUMMY_SP),
-                                        type_ann: None,
-                                    }),
-                                    definite: false,
-                                    init: Some(right.to_owned()),
-                                }],
-                            })),
-                        })),
-                    };
-
-                    *item = new_item;
-
-                    continue;
-                }
-
-                eprintln!("right = {:?}", right.as_ref());
-
-                if let Expr::Call(CallExpr {
-                    callee: Callee::Expr(callee),
-                    args,
+        if let ModuleItem::Stmt(Stmt::Expr(ExprStmt {
+            span: _,
+            expr:
+                box Expr::Assign(AssignExpr {
+                    op: AssignOp::Assign,
+                    left: PatOrExpr::Pat(left),
+                    right,
                     ..
-                }) = right.as_ref()
-                {
-                    eprintln!("callee = {:?}", callee);
-                    match callee.as_ref() {
-                        Expr::Ident(Ident { sym, .. }) if sym == "require" => {
-                            // TODO: extract the source from the callee
-                            // TODO: determine whether this is a default import or one-or-more named imports
-                            let arg = &args[0];
+                }),
+        })) = item
+        {
+            if is_module_exports(left) {
+                *item = ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(ExportDefaultExpr {
+                    span: DUMMY_SP,
+                    expr: right.to_owned(),
+                }));
 
-                            eprintln!("arg = {:?}", arg);
+                continue;
+            }
 
-                            let src = match arg {
-                                ExprOrSpread { spread: None, expr } => match expr.as_ref() {
-                                    Expr::Lit(Lit::Str(src)) => src,
-                                    _ => panic!("TODO: handle non-string require() arguments"),
-                                },
-                                _ => panic!("TODO: handle non-string require() arguments"),
-                            };
+            if let Some(prop) = is_exports_member(left) {
+                let new_item = match right.as_ref() {
+                    Expr::Fn(FnExpr { ident: _, function }) => {
+                        ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
+                            span: DUMMY_SP,
+                            decl: Decl::Fn(FnDecl {
+                                ident: Ident::new(prop, DUMMY_SP),
+                                declare: false,
+                                function: function.to_owned(),
+                            }),
+                        }))
+                    }
+                    Expr::Class(ClassExpr { ident: _, class }) => {
+                        ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
+                            span: DUMMY_SP,
+                            decl: Decl::Class(ClassDecl {
+                                ident: Ident::new(prop, DUMMY_SP),
+                                declare: false,
+                                class: class.to_owned(),
+                            }),
+                        }))
+                    }
+                    Expr::Ident(ident) => {
+                        ModuleItem::ModuleDecl(ModuleDecl::ExportNamed(NamedExport {
+                            span: DUMMY_SP,
+                            specifiers: vec![ExportSpecifier::Named(ExportNamedSpecifier {
+                                span: DUMMY_SP,
+                                orig: ModuleExportName::Ident(Ident::new(prop, DUMMY_SP)),
+                                exported: Some(ModuleExportName::Ident(ident.to_owned())),
+                                is_type_only: false,
+                            })],
+                            src: None,
+                            type_only: false,
+                            with: None,
+                        }))
+                    }
+                    _ => ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
+                        span: DUMMY_SP,
+                        decl: Decl::Var(Box::new(VarDecl {
+                            span: DUMMY_SP,
+                            kind: VarDeclKind::Const,
+                            declare: false,
+                            decls: vec![VarDeclarator {
+                                span: DUMMY_SP,
+                                name: Pat::Ident(BindingIdent {
+                                    id: Ident::new(prop, DUMMY_SP),
+                                    type_ann: None,
+                                }),
+                                definite: false,
+                                init: Some(right.to_owned()),
+                            }],
+                        })),
+                    })),
+                };
 
-                            match left.as_ref() {
-                                Pat::Ident(ident) => {
-                                    let new_item =
-                                        ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
-                                            span: DUMMY_SP,
-                                            specifiers: vec![ImportSpecifier::Default(
-                                                ImportDefaultSpecifier {
-                                                    span: DUMMY_SP,
-                                                    local: ident.id.to_owned(),
-                                                },
-                                            )],
-                                            src: Box::new(src.to_owned()),
-                                            type_only: false,
-                                            with: None,
-                                        }));
+                *item = new_item;
 
-                                    *item = new_item;
-                                }
-                                Pat::Array(_) => todo!(),
-                                Pat::Rest(_) => todo!(),
-                                Pat::Object(_) => {
-                                    // maybe named imports
-                                    todo!()
-                                }
-                                Pat::Assign(_) => todo!(),
-                                Pat::Invalid(_) => todo!(),
-                                Pat::Expr(_) => todo!(),
-                            }
-                        }
-                        _ => (),
-                    };
-
-                    continue;
-                }
+                continue;
             }
         }
 
-        if let ModuleItem::Stmt(Stmt::Decl(Decl::Var(decl))) = item {
-            let VarDecl { decls, .. } = decl.as_ref();
-
+        if let ModuleItem::Stmt(Stmt::Decl(Decl::Var(box VarDecl { decls, .. }))) = item {
             // TODO: handle multiple decls
             let decl = &decls[0];
 
-            if let Some(init) = &decl.init {
-                if let Expr::Call(CallExpr {
-                    callee: Callee::Expr(callee),
+            match &decl.init {
+                Some(box Expr::Call(CallExpr {
+                    callee: Callee::Expr(box Expr::Ident(Ident { sym, .. })),
                     args,
                     ..
-                }) = init.as_ref()
-                {
-                    if let Expr::Ident(Ident { sym, .. }) = callee.as_ref() {
-                        if sym == "require" {
-                            let src = match &args[0] {
-                                ExprOrSpread { spread: None, expr } => match expr.as_ref() {
-                                    Expr::Lit(Lit::Str(src)) => src,
-                                    _ => panic!("TODO: handle non-string require() arguments"),
-                                },
-                                _ => panic!("TODO: handle non-string require() arguments"),
-                            };
+                })) if sym == "require" => {
+                    let src = match &args[0] {
+                        ExprOrSpread { spread: None, expr } => match expr.as_ref() {
+                            Expr::Lit(Lit::Str(src)) => src,
+                            _ => panic!("TODO: handle non-string require() arguments"),
+                        },
+                        _ => panic!("TODO: handle non-string require() arguments"),
+                    };
 
-                            match &decl.name {
-                                Pat::Ident(ident) => {
-                                    let new_item =
-                                        ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
-                                            span: DUMMY_SP,
-                                            specifiers: vec![ImportSpecifier::Default(
-                                                ImportDefaultSpecifier {
-                                                    span: DUMMY_SP,
-                                                    local: ident.id.to_owned(),
-                                                },
-                                            )],
-                                            src: Box::new(src.to_owned()),
-                                            type_only: false,
-                                            with: None,
-                                        }));
+                    match &decl.name {
+                        Pat::Ident(ident) => {
+                            let new_item = ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
+                                span: DUMMY_SP,
+                                specifiers: vec![ImportSpecifier::Default(
+                                    ImportDefaultSpecifier {
+                                        span: DUMMY_SP,
+                                        local: ident.id.to_owned(),
+                                    },
+                                )],
+                                src: Box::new(src.to_owned()),
+                                type_only: false,
+                                with: None,
+                            }));
 
-                                    *item = new_item;
-                                }
-                                Pat::Array(_) => todo!(),
-                                Pat::Rest(_) => todo!(),
-                                Pat::Object(ObjectPat { props, .. }) => {
-                                    let mut specifiers = vec![];
-
-                                    for prop in props {
-                                        // TODO: handle deep destructuring
-                                        match prop {
-                                            ObjectPatProp::Assign(AssignPatProp {
-                                                span,
-                                                key,
-                                                value: None,
-                                            }) => {
-                                                specifiers.push(ImportSpecifier::Named(
-                                                    ImportNamedSpecifier {
-                                                        span: span.to_owned(),
-                                                        imported: None,
-                                                        local: key.to_owned(),
-                                                        is_type_only: false,
-                                                    },
-                                                ));
-                                            }
-                                            ObjectPatProp::KeyValue(KeyValuePatProp {
-                                                key: PropName::Ident(key),
-                                                value: box Pat::Ident(value),
-                                            }) => {
-                                                specifiers.push(ImportSpecifier::Named(
-                                                    ImportNamedSpecifier {
-                                                        span: DUMMY_SP,
-                                                        imported: Some(ModuleExportName::Ident(
-                                                            key.to_owned(),
-                                                        )),
-                                                        local: value.id.to_owned(),
-                                                        is_type_only: false,
-                                                    },
-                                                ));
-                                            }
-                                            ObjectPatProp::KeyValue(KeyValuePatProp {
-                                                key: PropName::Str(key),
-                                                value: box Pat::Ident(value),
-                                            }) => {
-                                                specifiers.push(ImportSpecifier::Named(
-                                                    ImportNamedSpecifier {
-                                                        span: DUMMY_SP,
-                                                        imported: Some(ModuleExportName::Str(
-                                                            key.to_owned(),
-                                                        )),
-                                                        local: value.id.to_owned(),
-                                                        is_type_only: false,
-                                                    },
-                                                ));
-                                            }
-                                            ObjectPatProp::Rest(_) => todo!(),
-                                            _ => todo!(),
-                                        }
-                                    }
-
-                                    let new_item =
-                                        ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
-                                            span: DUMMY_SP,
-                                            specifiers,
-                                            src: Box::new(src.to_owned()),
-                                            type_only: false,
-                                            with: None,
-                                        }));
-
-                                    *item = new_item;
-                                }
-                                Pat::Assign(_) => todo!(),
-                                Pat::Invalid(_) => todo!(),
-                                Pat::Expr(_) => todo!(),
-                            }
+                            *item = new_item;
                         }
+                        Pat::Array(_) => todo!(),
+                        Pat::Rest(_) => todo!(),
+                        Pat::Object(ObjectPat { props, .. }) => {
+                            let mut specifiers = vec![];
+
+                            for prop in props {
+                                // TODO: handle deep destructuring
+                                match prop {
+                                    ObjectPatProp::Assign(AssignPatProp {
+                                        span,
+                                        key,
+                                        value: None,
+                                    }) => {
+                                        specifiers.push(ImportSpecifier::Named(
+                                            ImportNamedSpecifier {
+                                                span: span.to_owned(),
+                                                imported: None,
+                                                local: key.to_owned(),
+                                                is_type_only: false,
+                                            },
+                                        ));
+                                    }
+                                    ObjectPatProp::KeyValue(KeyValuePatProp {
+                                        key: PropName::Ident(key),
+                                        value: box Pat::Ident(value),
+                                    }) => {
+                                        specifiers.push(ImportSpecifier::Named(
+                                            ImportNamedSpecifier {
+                                                span: DUMMY_SP,
+                                                imported: Some(ModuleExportName::Ident(
+                                                    key.to_owned(),
+                                                )),
+                                                local: value.id.to_owned(),
+                                                is_type_only: false,
+                                            },
+                                        ));
+                                    }
+                                    ObjectPatProp::KeyValue(KeyValuePatProp {
+                                        key: PropName::Str(key),
+                                        value: box Pat::Ident(value),
+                                    }) => {
+                                        specifiers.push(ImportSpecifier::Named(
+                                            ImportNamedSpecifier {
+                                                span: DUMMY_SP,
+                                                imported: Some(ModuleExportName::Str(
+                                                    key.to_owned(),
+                                                )),
+                                                local: value.id.to_owned(),
+                                                is_type_only: false,
+                                            },
+                                        ));
+                                    }
+                                    ObjectPatProp::Rest(_) => todo!(),
+                                    _ => todo!(),
+                                }
+                            }
+
+                            let new_item = ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
+                                span: DUMMY_SP,
+                                specifiers,
+                                src: Box::new(src.to_owned()),
+                                type_only: false,
+                                with: None,
+                            }));
+
+                            *item = new_item;
+                        }
+                        Pat::Assign(_) => todo!(),
+                        Pat::Invalid(_) => todo!(),
+                        Pat::Expr(_) => todo!(),
                     }
                 }
+                _ => (),
             }
         }
     }
